@@ -25,6 +25,7 @@ class TileBag:
                 tiles.append(Tile(letter, 0, 0, score))
 
         random.shuffle(tiles)
+        print(f"Initialized tile bag with {len(tiles)} tiles")
         return tiles
 
     def draw(self, surface):
@@ -39,8 +40,11 @@ class TileBag:
 
     def draw_tile(self):
         if self.tiles:
-            return self.tiles.pop()
+            tile = self.tiles.pop()
+            print(f"Drew tile {tile.letter} from bag. {len(self.tiles)} tiles remaining")
+            return tile
         else:
+            print("No tiles left in bag")
             return None
 
     def remaining_tiles(self):

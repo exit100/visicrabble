@@ -29,6 +29,15 @@ class Tile:
         self.rect = self.image.get_rect(topleft=(x, y))
         self.dragging = False
         self.placed_cell = None
+        self.in_rack = True  # Track if tile is in the rack
 
     def draw(self, surface):
         surface.blit(self.image, self.rect.topleft)
+
+    def place(self, row, col):
+        self.placed_cell = (row, col)
+        self.in_rack = False
+
+    def unplace(self):
+        self.placed_cell = None
+        self.in_rack = True
