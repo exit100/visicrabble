@@ -2,10 +2,10 @@ import pygame
 import random
 from dictionary import Dictionary
 
-TILE_SIZE = 40
-ROWS, COLS = 20, 20
+TILE_SIZE = 45
+ROWS, COLS = 15, 15
 GRID_COLOR = (200, 200, 200)
-BG_COLOR = (255, 255, 255)
+BG_COLOR = (240, 240, 240)
 BLACK = (0, 0, 0)
 
 # Bonus space colors
@@ -17,7 +17,12 @@ TL_COLOR = (100, 100, 255)  # Dark blue for triple letter
 class ScrabbleBoard:
     def __init__(self):
         self.grid = [[None for _ in range(COLS)] for _ in range(ROWS)]
-        self.rect = pygame.Rect(0, 0, COLS * TILE_SIZE, ROWS * TILE_SIZE)
+        # Center the board horizontally
+        board_width = COLS * TILE_SIZE
+        board_height = ROWS * TILE_SIZE
+        x = (1200 - board_width) // 2  # Center horizontally
+        y = 50  # Keep top margin
+        self.rect = pygame.Rect(x, y, board_width, board_height)
         self.current_turn_tiles = set()
         self.bonus_spaces = self._initialize_bonus_spaces()
         self._create_static_board()
@@ -82,18 +87,20 @@ class ScrabbleBoard:
         for row in range(ROWS):
             for col in range(COLS):
                 rect = pygame.Rect(col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-                pygame.draw.rect(self.static_surface, GRID_COLOR, rect, 1)
                 
                 # Draw bonus spaces
                 if (row, col) in self.bonus_spaces:
                     bonus_type, color = self.bonus_spaces[(row, col)]
                     pygame.draw.rect(self.static_surface, color, rect)
                     
-                    # Draw bonus text
-                    font = pygame.font.SysFont(None, 20)
+                    # Draw bonus text with better font
+                    font = pygame.font.SysFont('Arial', 16, bold=True)
                     text = font.render(bonus_type, True, BLACK)
                     text_rect = text.get_rect(center=rect.center)
                     self.static_surface.blit(text, text_rect)
+                else:
+                    # Draw regular grid cell
+                    pygame.draw.rect(self.static_surface, GRID_COLOR, rect, 1)
 
     def draw(self, surface):
         # Draw the static board elements
@@ -110,9 +117,15 @@ class ScrabbleBoard:
         if not self.rect.collidepoint(x, y):
             return None
             
-        col = x // TILE_SIZE
-        row = y // TILE_SIZE
+        # Calculate grid position relative to board's top-left corner
+        rel_x = x - self.rect.x
+        rel_y = y - self.rect.y
         
+        # Calculate the exact grid position
+        col = int(rel_x / TILE_SIZE)
+        row = int(rel_y / TILE_SIZE)
+        
+        # Ensure we're within bounds
         if 0 <= row < ROWS and 0 <= col < COLS:
             return row, col
         return None
@@ -131,10 +144,15 @@ class ScrabbleBoard:
             
             # Place the tile in the new position
             self.grid[row][col] = tile
-            tile.rect.topleft = (col * TILE_SIZE, row * TILE_SIZE)
+            
+            # Calculate exact pixel position for snapping
+            exact_x = self.rect.x + (col * TILE_SIZE)
+            exact_y = self.rect.y + (row * TILE_SIZE)
+            tile.rect.topleft = (exact_x, exact_y)
+            
             tile.place(row, col)
             self.current_turn_tiles.add(tile)
-            tile.in_rack = False  # Mark tile as not in rack
+            tile.in_rack = False
             return True
         return False
 
@@ -153,9 +171,10 @@ class ScrabbleBoard:
         grid_pos = self.snap_position(x, y)
         if grid_pos:
             row, col = grid_pos
-            tile = self.grid[row][col]
-            if tile and tile in self.current_turn_tiles:
-                return tile
+            if 0 <= row < ROWS and 0 <= col < COLS:
+                tile = self.grid[row][col]
+                if tile and tile in self.current_turn_tiles:
+                    return tile
         return None
 
     def start_drag(self, x, y):
@@ -200,23 +219,35 @@ class ScrabbleBoard:
             # Check left
             c = col
             while c >= 0 and self.grid[row][c]:
-                word.insert(0, self.grid[row][c].letter)
+                tile = self.grid[row][c]
+                # Use chosen_letter for blank tiles
+                letter = tile.chosen_letter if tile.is_blank and tile.chosen_letter else tile.letter
+                word.insert(0, letter)
                 c -= 1
             # Check right
             c = col + 1
             while c < COLS and self.grid[row][c]:
-                word.append(self.grid[row][c].letter)
+                tile = self.grid[row][c]
+                # Use chosen_letter for blank tiles
+                letter = tile.chosen_letter if tile.is_blank and tile.chosen_letter else tile.letter
+                word.append(letter)
                 c += 1
         else:
             # Check up
             r = row
             while r >= 0 and self.grid[r][col]:
-                word.insert(0, self.grid[r][col].letter)
+                tile = self.grid[r][col]
+                # Use chosen_letter for blank tiles
+                letter = tile.chosen_letter if tile.is_blank and tile.chosen_letter else tile.letter
+                word.insert(0, letter)
                 r -= 1
             # Check down
             r = row + 1
             while r < ROWS and self.grid[r][col]:
-                word.append(self.grid[r][col].letter)
+                tile = self.grid[r][col]
+                # Use chosen_letter for blank tiles
+                letter = tile.chosen_letter if tile.is_blank and tile.chosen_letter else tile.letter
+                word.append(letter)
                 r += 1
         return ''.join(word)
 

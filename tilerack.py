@@ -1,20 +1,22 @@
 import pygame
 from tile import Tile
 
-TILE_RACK_WIDTH = 40  # Width of each tile in the rack
-TILE_RACK_HEIGHT = 40  # Height of each tile
-TILE_RACK_Y = 580  # Y position of the rack at the bottom of the screen
-MARGIN_X = 5  # Horizontal margin between tiles
-MAX_TILES = 7  # Maximum number of tiles in the rack
+TILE_RACK_WIDTH = 45  # Match tile size
+TILE_RACK_HEIGHT = 45
+TILE_RACK_Y = 750  # Move rack lower
+MARGIN_X = 8
+MAX_TILES = 7
 
 class TileRack:
     def __init__(self):
         self.tiles = []
-        self.x = 10  # X position of the TileRack (start it from the left side)
+        # Center the rack horizontally
+        rack_width = MAX_TILES * (TILE_RACK_WIDTH + MARGIN_X) - MARGIN_X
+        self.x = (1200 - rack_width) // 2  # Center horizontally
         self.y = TILE_RACK_Y
         self.selected_tile = None
         self.drag_start_pos = None
-        self.original_pos = None  # Store original position of dragged tile
+        self.original_pos = None
 
     def add_tile(self, tile):
         if len(self.tiles) < MAX_TILES:
@@ -28,25 +30,24 @@ class TileRack:
         return False
 
     def _update_tile_positions(self):
-        # Calculate total width of all tiles with margins
-        total_width = len(self.tiles) * (TILE_RACK_WIDTH + MARGIN_X) - MARGIN_X
-        # Calculate starting x position to center the tiles
-        start_x = self.x + (800 - total_width) // 2  # 800 is the screen width
-        
         # Position tiles horizontally
         for i, tile in enumerate(self.tiles):
-            if tile.in_rack:  # Only update position if tile is in rack
-                tile.rect.x = start_x + (i * (TILE_RACK_WIDTH + MARGIN_X))
+            if tile.in_rack:
+                tile.rect.x = self.x + (i * (TILE_RACK_WIDTH + MARGIN_X))
                 tile.rect.y = self.y
 
     def draw(self, surface):
-        # Draw the rack background
-        rack_rect = pygame.Rect(self.x, self.y, 800, TILE_RACK_HEIGHT)
-        pygame.draw.rect(surface, (200, 200, 200), rack_rect)
+        # Draw the rack background with rounded corners
+        rack_width = MAX_TILES * (TILE_RACK_WIDTH + MARGIN_X) - MARGIN_X
+        rack_rect = pygame.Rect(self.x - 10, self.y - 10, 
+                               rack_width + 20, 
+                               TILE_RACK_HEIGHT + 20)
+        pygame.draw.rect(surface, (220, 220, 220), rack_rect, border_radius=10)
+        pygame.draw.rect(surface, (180, 180, 180), rack_rect, width=2, border_radius=10)
         
         # Draw the tiles
         for tile in self.tiles:
-            if tile.in_rack and tile != self.selected_tile:  # Only draw rack tiles
+            if tile.in_rack and tile != self.selected_tile:
                 tile.draw(surface)
         
         # Draw the selected tile last (on top)

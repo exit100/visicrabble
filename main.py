@@ -4,13 +4,14 @@ from board import ScrabbleBoard, TILE_SIZE, ROWS as BOARD_SIZE
 from tilebag import TileBag
 from tilerack import TileRack
 from scoring import ScrabbleScoring
+from tile import Tile
 
 # Initialize Pygame
 pygame.init()
 
 # Constants
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 640
+SCREEN_WIDTH = 1200
+SCREEN_HEIGHT = 900
 FPS = 60
 
 # Colors
@@ -21,6 +22,8 @@ BUTTON_HOVER_COLOR = (150, 150, 150)
 ERROR_COLOR = (255, 0, 0)
 SUCCESS_COLOR = (0, 255, 0)
 LIGHT_BLUE = (200, 200, 255)
+BOARD_BG = (240, 240, 240)
+RACK_BG = (220, 220, 220)
 
 class ScrabbleGame:
     def __init__(self):
@@ -35,8 +38,8 @@ class ScrabbleGame:
         self.scoring = ScrabbleScoring()
         
         # Initialize buttons
-        self.end_turn_button = pygame.Rect(SCREEN_WIDTH - 120, 50, 100, 40)
-        self.replace_letter_button = pygame.Rect(SCREEN_WIDTH - 120, 100, 100, 40)
+        self.end_turn_button = pygame.Rect(SCREEN_WIDTH - 150, 50, 120, 40)
+        self.replace_letter_button = pygame.Rect(SCREEN_WIDTH - 150, 100, 120, 40)
         self.button_font = pygame.font.SysFont(None, 30)
         self.message_font = pygame.font.SysFont(None, 24)
         
@@ -48,7 +51,8 @@ class ScrabbleGame:
         # Track double click
         self.last_click_time = 0
         self.last_click_pos = None
-        self.double_click_delay = 300  # milliseconds
+        self.double_click_delay = 500  # milliseconds
+        self.last_clicked_tile = None  # Track the last clicked tile
         
         # Message display
         self.message = ""
@@ -61,7 +65,13 @@ class ScrabbleGame:
         
         # Blank tile selection
         self.blank_tile_selection = None
-        self.blank_tile_rect = pygame.Rect(SCREEN_WIDTH - 120, 150, 100, 200)
+        # Position the blank tile selection area in the center of the screen
+        self.blank_tile_rect = pygame.Rect(
+            (SCREEN_WIDTH - 300) // 2,  # Center horizontally
+            (SCREEN_HEIGHT - 300) // 2,  # Center vertically
+            300,  # Width
+            300   # Height
+        )
         self.blank_tile_buttons = []
         self._initialize_blank_tile_buttons()
         
@@ -71,20 +81,20 @@ class ScrabbleGame:
     def _initialize_blank_tile_buttons(self):
         """Initialize the buttons for blank tile letter selection."""
         letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        button_width = 30
-        button_height = 30
+        button_width = 35
+        button_height = 35
         buttons_per_row = 7
-        start_x = self.blank_tile_rect.x
-        start_y = self.blank_tile_rect.y
+        start_x = self.blank_tile_rect.x + 10  # Add padding
+        start_y = self.blank_tile_rect.y + 50  # Increased padding to avoid text overlap
         
         for i, letter in enumerate(letters):
             row = i // buttons_per_row
             col = i % buttons_per_row
-            x = start_x + (col * button_width)
-            y = start_y + (row * button_height)
+            x = start_x + (col * (button_width + 5))  # Add spacing between buttons
+            y = start_y + (row * (button_height + 5))  # Add spacing between rows
             self.blank_tile_buttons.append({
                 'letter': letter,
-                'rect': pygame.Rect(x, y, button_width - 2, button_height - 2)
+                'rect': pygame.Rect(x, y, button_width, button_height)
             })
 
     def show_message(self, message, color=BLACK, duration=2000):
@@ -93,6 +103,10 @@ class ScrabbleGame:
         self.message_timer = pygame.time.get_ticks() + duration
 
     def fill_rack(self):
+        # Debug: Add a blank tile first
+        blank_tile = Tile('_', 0, 0, 0)
+        self.tile_rack.add_tile(blank_tile)
+        
         # Fill the rack up to 7 tiles
         while len(self.tile_rack.tiles) < 7:
             tile = self.tile_bag.draw_tile()
@@ -136,47 +150,20 @@ class ScrabbleGame:
                     if self.blank_tile_selection:
                         for button in self.blank_tile_buttons:
                             if button['rect'].collidepoint(event.pos):
-                                self.blank_tile_selection.letter = button['letter']
+                                self.blank_tile_selection.chosen_letter = button['letter']
+                                self.blank_tile_selection.update_display()
                                 self.blank_tile_selection = None
                                 return True
-                    
-                    # Check for double click
-                    if (self.last_click_time and 
-                        current_time - self.last_click_time < self.double_click_delay and
-                        self.last_click_pos and
-                        abs(event.pos[0] - self.last_click_pos[0]) < 10 and
-                        abs(event.pos[1] - self.last_click_pos[1]) < 10):
-                        
-                        # Double click detected - check if it's on a board tile
-                        board_tile = self.board.get_tile_at(event.pos[0], event.pos[1])
-                        if board_tile and board_tile in self.board.current_turn_tiles:
-                            # Remove tile from board and return to rack
-                            if self.board.remove_tile(board_tile):
-                                board_tile.in_rack = True
-                                self.tile_rack.add_tile(board_tile)
-                                self.tile_rack._update_tile_positions()
-                            self.last_click_time = 0
-                            self.last_click_pos = None
+                        # If clicked outside the letter buttons, close the selection
+                        if not self.blank_tile_rect.collidepoint(event.pos):
+                            self.blank_tile_selection = None
                             return True
-                    
-                    # Update click tracking
-                    self.last_click_time = current_time
-                    self.last_click_pos = event.pos
                     
                     # Check if we clicked on a tile in the rack
                     clicked_tile = self.tile_rack.get_tile_at(event.pos[0], event.pos[1])
                     if clicked_tile:
-                        # If it's a blank tile, show letter selection
-                        if clicked_tile.letter == '_':
-                            self.blank_tile_selection = clicked_tile
-                            return True
-                        # If we're in replacement mode, select the tile
-                        elif self.selected_tile_for_replacement is None:
-                            self.selected_tile_for_replacement = clicked_tile
-                            self.show_message("Click 'Replace Letter' to replace the selected tile", BLACK)
-                            return True
-                        # If we're not in replacement mode, start dragging
-                        elif self.tile_rack.start_drag(event.pos[0], event.pos[1]):
+                        # Start dragging for any tile
+                        if self.tile_rack.start_drag(event.pos[0], event.pos[1]):
                             self.dragged_tile = self.tile_rack.selected_tile
                             self.drag_start_pos = event.pos
                             self.original_pos = (self.dragged_tile.rect.x, self.dragged_tile.rect.y)
@@ -189,6 +176,37 @@ class ScrabbleGame:
                         self.drag_start_pos = event.pos
                         self.original_pos = (board_tile.rect.x, board_tile.rect.y)
                         self.board.remove_tile(board_tile)
+            
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:  # Left mouse button
+                    if self.dragged_tile:
+                        # Try to place the tile on the board
+                        mouse_x, mouse_y = event.pos
+                        grid_pos = self.board.snap_position(mouse_x, mouse_y)
+                        
+                        if grid_pos:
+                            row, col = grid_pos
+                            if self.board.place_tile(self.dragged_tile, row, col):
+                                # Tile was placed on board, remove from rack
+                                self.tile_rack.remove_tile(self.dragged_tile)
+                                print(f"Tile placed on board. Remaining tiles in rack: {len(self.tile_rack.tiles)}")
+                        else:
+                            # Tile was not placed on board, return to rack
+                            if self.dragged_tile not in self.tile_rack.tiles:
+                                self.tile_rack.add_tile(self.dragged_tile)
+                            self.dragged_tile.in_rack = True
+                            self.tile_rack._update_tile_positions()
+                        
+                        # Check if the placed tile is a blank tile
+                        if self.dragged_tile.letter == '_':
+                            self.blank_tile_selection = self.dragged_tile
+                        
+                        # Reset drag state
+                        self.dragged_tile = None
+                        self.drag_start_pos = None
+                        self.original_pos = None
+                    elif self.tile_rack.selected_tile:
+                        self.tile_rack.end_drag(event.pos)
             
             elif event.type == pygame.MOUSEMOTION:
                 # Update drag position if dragging
@@ -203,31 +221,6 @@ class ScrabbleGame:
                     
                     # Update drag start position
                     self.drag_start_pos = event.pos
-            
-            elif event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1:  # Left mouse button
-                    if self.dragged_tile:
-                        # Try to place the tile on the board
-                        mouse_x, mouse_y = pygame.mouse.get_pos()
-                        board_col = mouse_x // TILE_SIZE
-                        board_row = mouse_y // TILE_SIZE
-                        
-                        if 0 <= board_row < BOARD_SIZE and 0 <= board_col < BOARD_SIZE:
-                            if self.board.place_tile(self.dragged_tile, board_row, board_col):
-                                # Tile was placed on board, remove from rack
-                                self.tile_rack.remove_tile(self.dragged_tile)
-                                print(f"Tile placed on board. Remaining tiles in rack: {len(self.tile_rack.tiles)}")
-                        else:
-                            # Tile was not placed on board, return to rack
-                            self.dragged_tile.rect.topleft = self.original_pos
-                            self.dragged_tile.in_rack = True
-                        
-                        # Reset drag state
-                        self.dragged_tile = None
-                        self.drag_start_pos = None
-                        self.original_pos = None
-                    elif self.tile_rack.selected_tile:
-                        self.tile_rack.end_drag(pygame.mouse.get_pos())
         
         return True
 
@@ -326,17 +319,41 @@ class ScrabbleGame:
         
         # Draw blank tile selection if active
         if self.blank_tile_selection:
+            # Draw semi-transparent overlay
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 128))  # Semi-transparent black
+            self.screen.blit(overlay, (0, 0))
+            
             # Draw the selection area
-            pygame.draw.rect(self.screen, LIGHT_BLUE, self.blank_tile_rect)
+            pygame.draw.rect(self.screen, WHITE, self.blank_tile_rect)
             pygame.draw.rect(self.screen, BLACK, self.blank_tile_rect, 2)
+            
+            # Draw title
+            title = self.button_font.render("Select Letter for Blank Tile", True, BLACK)
+            title_rect = title.get_rect(centerx=self.blank_tile_rect.centerx, 
+                                      top=self.blank_tile_rect.y + 10)
+            self.screen.blit(title, title_rect)
+            
+            # Draw instructions
+            instructions = self.message_font.render("Click a letter to select it", True, BLACK)
+            instructions_rect = instructions.get_rect(centerx=self.blank_tile_rect.centerx,
+                                                    top=title_rect.bottom + 10)
+            self.screen.blit(instructions, instructions_rect)
             
             # Draw the letter buttons
             for button in self.blank_tile_buttons:
-                pygame.draw.rect(self.screen, WHITE, button['rect'])
+                # Draw button background
+                pygame.draw.rect(self.screen, LIGHT_BLUE, button['rect'])
                 pygame.draw.rect(self.screen, BLACK, button['rect'], 1)
+                
+                # Draw letter
                 text = self.button_font.render(button['letter'], True, BLACK)
                 text_rect = text.get_rect(center=button['rect'].center)
                 self.screen.blit(text, text_rect)
+                
+                # Draw hover effect
+                if button['rect'].collidepoint(mouse_pos):
+                    pygame.draw.rect(self.screen, (150, 150, 255), button['rect'], 2)
         
         # Draw score
         score_text = self.message_font.render(f"Score: {self.player_score}", True, BLACK)
