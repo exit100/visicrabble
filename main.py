@@ -4,7 +4,6 @@ from board import ScrabbleBoard, TILE_SIZE, ROWS as BOARD_SIZE
 from tilebag import TileBag
 from tilerack import TileRack
 from scoring import ScrabbleScoring
-from itertools import permutations
 
 # Initialize Pygame
 pygame.init()
@@ -68,9 +67,6 @@ class ScrabbleGame:
         
         # Fill the rack with initial tiles
         self.fill_rack()
-        
-        # Check if initial tiles can form a word
-        self.check_and_replace_unplayable_tiles()
 
     def _initialize_blank_tile_buttons(self):
         """Initialize the buttons for blank tile letter selection."""
@@ -90,36 +86,6 @@ class ScrabbleGame:
                 'letter': letter,
                 'rect': pygame.Rect(x, y, button_width - 2, button_height - 2)
             })
-
-    def can_form_word(self, tiles):
-        """Check if the given tiles can form any valid word."""
-        # Get all possible combinations of tiles
-        for length in range(2, len(tiles) + 1):
-            for combo in permutations(tiles, length):
-                word = ''.join(tile.letter for tile in combo)
-                if self.board.dictionary.is_valid_word(word):
-                    return True
-        return False
-
-    def check_and_replace_unplayable_tiles(self):
-        """Check if current tiles can form a word, replace if not."""
-        if not self.can_form_word(self.tile_rack.tiles):
-            # Replace all tiles
-            old_tiles = self.tile_rack.tiles.copy()
-            self.tile_rack.tiles.clear()
-            
-            # Return old tiles to bag
-            for tile in old_tiles:
-                self.tile_bag.return_tile(tile)
-            
-            # Draw new tiles
-            self.fill_rack()
-            
-            # Show message
-            self.show_message("No playable words possible. Tiles replaced.", SUCCESS_COLOR)
-            
-            # Check again recursively (in case new tiles also can't form words)
-            self.check_and_replace_unplayable_tiles()
 
     def show_message(self, message, color=BLACK, duration=2000):
         self.message = message
@@ -149,8 +115,6 @@ class ScrabbleGame:
                         success, message = self.end_turn()
                         if success:
                             self.show_message(message, SUCCESS_COLOR)
-                            # Check if new tiles can form a word
-                            self.check_and_replace_unplayable_tiles()
                         else:
                             self.show_message(message, ERROR_COLOR)
                         return True
@@ -161,8 +125,6 @@ class ScrabbleGame:
                             success, message = self.replace_letter()
                             if success:
                                 self.show_message(message, SUCCESS_COLOR)
-                                # Check if new tiles can form a word
-                                self.check_and_replace_unplayable_tiles()
                             else:
                                 self.show_message(message, ERROR_COLOR)
                             return True
@@ -176,8 +138,6 @@ class ScrabbleGame:
                             if button['rect'].collidepoint(event.pos):
                                 self.blank_tile_selection.letter = button['letter']
                                 self.blank_tile_selection = None
-                                # Check if tiles can form a word after blank tile assignment
-                                self.check_and_replace_unplayable_tiles()
                                 return True
                     
                     # Check for double click
