@@ -161,13 +161,14 @@ class ScrabbleGame:
                             # Clear any dragged tiles
                             self.dragged_tile = None
                             self.tile_rack.selected_tile = None
-                            
-                            # Force a redraw
-                            self.draw()
-                            pygame.display.flip()
                         else:
                             self.message = message
                             self.message_color = (255, 0, 0)
+                            # If the turn was invalid, return tiles to the rack
+                            for tile in list(self.board.current_turn_tiles):
+                                if self.board.remove_tile(tile):
+                                    self.tile_rack.add_tile(tile)
+                            self.tile_rack._update_tile_positions()
                         
                         self.message_timer = 60
                         return True

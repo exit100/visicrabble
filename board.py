@@ -134,6 +134,7 @@ class ScrabbleBoard:
         return 0 <= row < ROWS and 0 <= col < COLS and self.grid[row][col] is None
 
     def place_tile(self, tile, row, col):
+        """Place a tile on the board."""
         if self.can_place(row, col):
             # Remove the tile from its previous position if it was placed
             if tile.placed_cell:
@@ -157,13 +158,14 @@ class ScrabbleBoard:
         return False
 
     def remove_tile(self, tile):
+        """Remove a tile from the board and return it to the rack."""
         if tile.placed_cell:
             row, col = tile.placed_cell
             if self.grid[row][col] == tile:
                 self.grid[row][col] = None
                 self.current_turn_tiles.discard(tile)
-            tile.unplace()
-            return True
+                tile.unplace()
+                return True
         return False
 
     def get_tile_at(self, x, y):
@@ -335,7 +337,11 @@ class ScrabbleBoard:
         """End the current turn, validating the words first."""
         valid, message = self.validate_current_turn()
         if not valid:
-            # If invalid, just return the error message without removing tiles
+            # If invalid, remove all tiles from current turn and return them to the rack
+            tiles_to_remove = list(self.current_turn_tiles)
+            for tile in tiles_to_remove:
+                self.remove_tile(tile)
+            self.current_turn_tiles.clear()
             return False, message, 0
         
         # Get the count of placed tiles before clearing
