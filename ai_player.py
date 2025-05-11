@@ -182,8 +182,8 @@ class AIPlayer:
         # If no moves found, try to find any valid move
         if not best_move:
             for tile in self.tile_rack.tiles:
-                for row in range(15):
-                    for col in range(15):
+                for row in range(20):  # Updated to 20
+                    for col in range(20):  # Updated to 20
                         if self.board.can_place(row, col):
                             # Try placing the tile
                             if self.board.place_tile(tile, row, col):

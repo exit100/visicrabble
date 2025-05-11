@@ -3,7 +3,7 @@ import random
 from dictionary import Dictionary
 
 TILE_SIZE = 45
-ROWS, COLS = 15, 15
+ROWS, COLS = 20, 20
 GRID_COLOR = (200, 200, 200)
 BG_COLOR = (240, 240, 240)
 BLACK = (0, 0, 0)
@@ -36,42 +36,42 @@ class ScrabbleBoard:
         
         # Triple Word (TW) - symmetrical star pattern
         tw_positions = [
-            (3, 3), (3, COLS-4),
+            (4, 4), (4, COLS-5),
             (center, center),
-            (ROWS-4, 3), (ROWS-4, COLS-4)
+            (ROWS-5, 4), (ROWS-5, COLS-5)
         ]
         for pos in tw_positions:
             bonus_spaces[pos] = ('TW', TW_COLOR)
         
         # Double Word (DW) - symmetrical diamond pattern
         dw_positions = [
-            (1, center),
-            (center, 1), (center, COLS-2),
-            (ROWS-2, center),
-            (5, 5), (5, COLS-6),
-            (ROWS-6, 5), (ROWS-6, COLS-6)
+            (2, center),
+            (center, 2), (center, COLS-3),
+            (ROWS-3, center),
+            (6, 6), (6, COLS-7),
+            (ROWS-7, 6), (ROWS-7, COLS-7)
         ]
         for pos in dw_positions:
             bonus_spaces[pos] = ('DW', DW_COLOR)
         
         # Triple Letter (TL) - symmetrical cross pattern
         tl_positions = [
-            (2, 2), (2, COLS-3),
-            (2, center),
-            (center, 2), (center, COLS-3),
-            (ROWS-3, 2), (ROWS-3, center), (ROWS-3, COLS-3)
+            (3, 3), (3, COLS-4),
+            (3, center),
+            (center, 3), (center, COLS-4),
+            (ROWS-4, 3), (ROWS-4, center), (ROWS-4, COLS-4)
         ]
         for pos in tl_positions:
             bonus_spaces[pos] = ('TL', TL_COLOR)
         
         # Double Letter (DL) - symmetrical corner pattern
         dl_positions = [
-            (0, 4), (0, COLS-5),
-            (4, 0), (4, COLS-1),
-            (4, 4), (4, COLS-5),
-            (ROWS-5, 0), (ROWS-5, COLS-1),
-            (ROWS-5, 4), (ROWS-5, COLS-5),
-            (ROWS-1, 4), (ROWS-1, COLS-5)
+            (0, 5), (0, COLS-6),
+            (5, 0), (5, COLS-1),
+            (5, 5), (5, COLS-6),
+            (ROWS-6, 0), (ROWS-6, COLS-1),
+            (ROWS-6, 5), (ROWS-6, COLS-6),
+            (ROWS-1, 5), (ROWS-1, COLS-6)
         ]
         for pos in dl_positions:
             bonus_spaces[pos] = ('DL', DL_COLOR)
