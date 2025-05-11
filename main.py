@@ -66,51 +66,11 @@ class ScrabbleGame:
         self.selected_tile_for_replacement = None
         self.is_player_turn = True  # True for player's turn, False for AI's turn
         
-        # Blank tile selection
-        self.blank_tile_selection = None
-        # Position the blank tile selection area in the center of the screen
-        self.blank_tile_rect = pygame.Rect(
-            (SCREEN_WIDTH - 300) // 2,  # Center horizontally
-            (SCREEN_HEIGHT - 300) // 2,  # Center vertically
-            300,  # Width
-            300   # Height
-        )
-        self.blank_tile_buttons = []
-        self._initialize_blank_tile_buttons()
-        
         # Fill the racks with initial tiles
         self.fill_rack()
         self.ai_player.fill_rack()
 
-    def _initialize_blank_tile_buttons(self):
-        """Initialize the buttons for blank tile letter selection."""
-        letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        button_width = 35
-        button_height = 35
-        buttons_per_row = 7
-        start_x = self.blank_tile_rect.x + 10  # Add padding
-        start_y = self.blank_tile_rect.y + 50  # Increased padding to avoid text overlap
-        
-        for i, letter in enumerate(letters):
-            row = i // buttons_per_row
-            col = i % buttons_per_row
-            x = start_x + (col * (button_width + 5))  # Add spacing between buttons
-            y = start_y + (row * (button_height + 5))  # Add spacing between rows
-            self.blank_tile_buttons.append({
-                'letter': letter,
-                'rect': pygame.Rect(x, y, button_width, button_height)
-            })
-
-    def show_message(self, message, color=BLACK, duration=2000):
-        self.message = message
-        self.message_color = color
-        self.message_timer = pygame.time.get_ticks() + duration
-
     def fill_rack(self):
-        # Debug: Add a blank tile first
-        blank_tile = Tile('_', 0, 0, 0)
-        self.tile_rack.add_tile(blank_tile)
-        
         # Fill the rack up to 7 tiles
         while len(self.tile_rack.tiles) < 7:
             tile = self.tile_bag.draw_tile()
@@ -155,8 +115,11 @@ class ScrabbleGame:
                     # Check if a tile on the board was clicked
                     board_tile = self.board.get_tile_at(event.pos[0], event.pos[1])
                     if board_tile and board_tile in self.board.current_turn_tiles:
-                        if board_tile.letter == '_':
-                            self.blank_tile_selection = board_tile
+                        # Start dragging the board tile
+                        if self.board.start_drag(event.pos[0], event.pos[1]):
+                            self.dragged_tile = self.board.selected_tile
+                            self.drag_start_pos = event.pos
+                            self.original_pos = (self.dragged_tile.rect.x, self.dragged_tile.rect.y)
                             return True
                             
                     # Check if a button was clicked
@@ -215,19 +178,6 @@ class ScrabbleGame:
                         self.message_color = (0, 255, 0)
                         self.message_timer = 60
                         return True
-                        
-                    # Check if a letter was selected for blank tile
-                    if self.blank_tile_selection:
-                        for button in self.blank_tile_buttons:
-                            if button['rect'].collidepoint(event.pos):
-                                self.blank_tile_selection.chosen_letter = button['letter']
-                                self.blank_tile_selection.update_display()
-                                self.blank_tile_selection = None
-                                return True
-                        # If clicked outside the letter buttons, close the selection
-                        if not self.blank_tile_rect.collidepoint(event.pos):
-                            self.blank_tile_selection = None
-                            return True
                                 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1 and self.dragged_tile:  # Left click release
@@ -238,9 +188,6 @@ class ScrabbleGame:
                         # Try to place the tile on the board
                         if self.board.place_tile(self.dragged_tile, *grid_pos):
                             self.tile_rack.remove_tile(self.dragged_tile)
-                            # Check if the placed tile is a blank tile
-                            if self.dragged_tile.letter == '_':
-                                self.blank_tile_selection = self.dragged_tile
                         else:
                             # Return tile to rack if placement failed
                             self.tile_rack.add_tile(self.dragged_tile)
@@ -325,44 +272,6 @@ class ScrabbleGame:
         text = self.button_font.render("Replace", True, WHITE)
         text_rect = text.get_rect(center=self.replace_button.center)
         self.screen.blit(text, text_rect)
-        
-        # Draw blank tile selection if active
-        if self.blank_tile_selection:
-            # Draw semi-transparent overlay
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 128))  # Semi-transparent black
-            self.screen.blit(overlay, (0, 0))
-            
-            # Draw the selection area
-            pygame.draw.rect(self.screen, WHITE, self.blank_tile_rect)
-            pygame.draw.rect(self.screen, BLACK, self.blank_tile_rect, 2)
-            
-            # Draw title
-            title = self.button_font.render("Select Letter for Blank Tile", True, BLACK)
-            title_rect = title.get_rect(centerx=self.blank_tile_rect.centerx, 
-                                      top=self.blank_tile_rect.y + 10)
-            self.screen.blit(title, title_rect)
-            
-            # Draw instructions
-            instructions = self.message_font.render("Click a letter to select it", True, BLACK)
-            instructions_rect = instructions.get_rect(centerx=self.blank_tile_rect.centerx,
-                                                    top=title_rect.bottom + 10)
-            self.screen.blit(instructions, instructions_rect)
-            
-            # Draw the letter buttons
-            for button in self.blank_tile_buttons:
-                # Draw button background
-                pygame.draw.rect(self.screen, LIGHT_BLUE, button['rect'])
-                pygame.draw.rect(self.screen, BLACK, button['rect'], 1)
-                
-                # Draw letter
-                text = self.button_font.render(button['letter'], True, BLACK)
-                text_rect = text.get_rect(center=button['rect'].center)
-                self.screen.blit(text, text_rect)
-                
-                # Draw hover effect
-                if button['rect'].collidepoint(pygame.mouse.get_pos()):
-                    pygame.draw.rect(self.screen, (150, 150, 255), button['rect'], 2)
         
         # Draw scores
         player_score_text = self.message_font.render(f"Your Score: {self.player_score}", True, BLACK)

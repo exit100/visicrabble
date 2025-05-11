@@ -220,34 +220,26 @@ class ScrabbleBoard:
             c = col
             while c >= 0 and self.grid[row][c]:
                 tile = self.grid[row][c]
-                # Use chosen_letter for blank tiles
-                letter = tile.chosen_letter if tile.is_blank and tile.chosen_letter else tile.letter
-                word.insert(0, letter)
+                word.insert(0, tile.letter)
                 c -= 1
             # Check right
             c = col + 1
             while c < COLS and self.grid[row][c]:
                 tile = self.grid[row][c]
-                # Use chosen_letter for blank tiles
-                letter = tile.chosen_letter if tile.is_blank and tile.chosen_letter else tile.letter
-                word.append(letter)
+                word.append(tile.letter)
                 c += 1
         else:
             # Check up
             r = row
             while r >= 0 and self.grid[r][col]:
                 tile = self.grid[r][col]
-                # Use chosen_letter for blank tiles
-                letter = tile.chosen_letter if tile.is_blank and tile.chosen_letter else tile.letter
-                word.insert(0, letter)
+                word.insert(0, tile.letter)
                 r -= 1
             # Check down
             r = row + 1
             while r < ROWS and self.grid[r][col]:
                 tile = self.grid[r][col]
-                # Use chosen_letter for blank tiles
-                letter = tile.chosen_letter if tile.is_blank and tile.chosen_letter else tile.letter
-                word.append(letter)
+                word.append(tile.letter)
                 r += 1
         return ''.join(word)
 

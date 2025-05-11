@@ -14,8 +14,6 @@ class Tile:
     def __init__(self, letter, x, y, score):
         self.letter = letter
         self.score = score
-        self.chosen_letter = None  # For blank tiles
-        self.is_blank = letter == '_'  # Track if this is a blank tile
 
         # Create a surface with per-pixel alpha
         self.image = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
@@ -46,14 +44,7 @@ class Tile:
         pygame.draw.rect(self.image, TILE_BORDER, (0, 0, TILE_SIZE, TILE_SIZE), width=2, border_radius=TILE_RADIUS)
 
         # Draw letter
-        if self.is_blank:
-            display_letter = self.chosen_letter if self.chosen_letter else '_'
-            text_color = (100, 100, 100)  # Gray color for blank tiles
-        else:
-            display_letter = self.letter
-            text_color = TEXT_COLOR
-
-        text = font.render(display_letter, True, text_color)
+        text = font.render(self.letter, True, TEXT_COLOR)
         text_rect = text.get_rect(center=(TILE_SIZE // 2, TILE_SIZE // 2 - 2))
         self.image.blit(text, text_rect)
 
