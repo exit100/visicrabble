@@ -5,6 +5,7 @@ from tilebag import TileBag
 from tilerack import TileRack
 from scoring import ScrabbleScoring
 from tile import Tile
+from ai_player import AIPlayer
 
 # Initialize Pygame
 pygame.init()
@@ -36,10 +37,11 @@ class ScrabbleGame:
         self.tile_bag = TileBag()
         self.tile_rack = TileRack()
         self.scoring = ScrabbleScoring()
+        self.ai_player = AIPlayer(self.board, self.tile_bag, self.scoring)
         
         # Initialize buttons
         self.end_turn_button = pygame.Rect(SCREEN_WIDTH - 150, 50, 120, 40)
-        self.replace_letter_button = pygame.Rect(SCREEN_WIDTH - 150, 100, 120, 40)
+        self.replace_button = pygame.Rect(SCREEN_WIDTH - 150, 100, 120, 40)
         self.button_font = pygame.font.SysFont(None, 30)
         self.message_font = pygame.font.SysFont(None, 24)
         
@@ -62,6 +64,7 @@ class ScrabbleGame:
         # Game state
         self.player_score = 0
         self.selected_tile_for_replacement = None
+        self.is_player_turn = True  # True for player's turn, False for AI's turn
         
         # Blank tile selection
         self.blank_tile_selection = None
@@ -75,8 +78,9 @@ class ScrabbleGame:
         self.blank_tile_buttons = []
         self._initialize_blank_tile_buttons()
         
-        # Fill the rack with initial tiles
+        # Fill the racks with initial tiles
         self.fill_rack()
+        self.ai_player.fill_rack()
 
     def _initialize_blank_tile_buttons(self):
         """Initialize the buttons for blank tile letter selection."""
@@ -116,37 +120,103 @@ class ScrabbleGame:
                 break  # No more tiles in the bag
 
     def handle_events(self):
+        """Handle game events."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
-            
+                
+            if not self.is_player_turn:
+                # AI's turn
+                success, score = self.ai_player.make_move(self.player_score)
+                if success:
+                    print(f"AI scored {score} points")
+                    # Fill player's rack
+                    while len(self.tile_rack.tiles) < 7:
+                        tile = self.tile_bag.draw_tile()
+                        if tile:
+                            self.tile_rack.add_tile(tile)
+                else:
+                    print("AI failed to make a move")
+                self.is_player_turn = True
+                return True
+                
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Left mouse button
-                    current_time = pygame.time.get_ticks()
-                    
-                    # Check if end turn button was clicked
+                if event.button == 1:  # Left click
+                    # Check if a tile in the rack was clicked
+                    clicked_tile = self.tile_rack.get_tile_at(event.pos[0], event.pos[1])
+                    if clicked_tile:
+                        # Start dragging immediately
+                        if self.tile_rack.start_drag(event.pos[0], event.pos[1]):
+                            self.dragged_tile = self.tile_rack.selected_tile
+                            self.drag_start_pos = event.pos
+                            self.original_pos = (self.dragged_tile.rect.x, self.dragged_tile.rect.y)
+                            return True
+                            
+                    # Check if a tile on the board was clicked
+                    board_tile = self.board.get_tile_at(event.pos[0], event.pos[1])
+                    if board_tile and board_tile in self.board.current_turn_tiles:
+                        if board_tile.letter == '_':
+                            self.blank_tile_selection = board_tile
+                            return True
+                            
+                    # Check if a button was clicked
                     if self.end_turn_button.collidepoint(event.pos):
-                        success, message = self.end_turn()
+                        # Calculate score for current turn
+                        turn_score = self.scoring.calculate_turn_score(self.board.current_turn_tiles, self.board)
+                        bonus = self.scoring.calculate_bonus(len(self.board.current_turn_tiles))
+                        total_score = turn_score + bonus
+                        
+                        # End the turn
+                        success, message, placed_tiles_count = self.board.end_turn()
                         if success:
-                            self.show_message(message, SUCCESS_COLOR)
+                            # Update player's score
+                            self.player_score += total_score
+                            
+                            # Fill the rack with new tiles
+                            for _ in range(placed_tiles_count):
+                                tile = self.tile_bag.draw_tile()
+                                if tile:
+                                    self.tile_rack.add_tile(tile)
+                            
+                            # Switch to AI's turn
+                            self.is_player_turn = False
+                            
+                            # Update message
+                            self.message = f"Turn completed! Score: {turn_score} + {bonus} bonus = {total_score}"
+                            self.message_color = (0, 255, 0)
+                            
+                            # Clear any dragged tiles
+                            self.dragged_tile = None
+                            self.tile_rack.selected_tile = None
+                            
+                            # Force a redraw
+                            self.draw()
+                            pygame.display.flip()
                         else:
-                            self.show_message(message, ERROR_COLOR)
+                            self.message = message
+                            self.message_color = (255, 0, 0)
+                        
+                        self.message_timer = 60
                         return True
-                    
-                    # Check if replace letter button was clicked
-                    if self.replace_letter_button.collidepoint(event.pos):
-                        if self.selected_tile_for_replacement:
-                            success, message = self.replace_letter()
-                            if success:
-                                self.show_message(message, SUCCESS_COLOR)
-                            else:
-                                self.show_message(message, ERROR_COLOR)
-                            return True
-                        else:
-                            self.show_message("Select a tile to replace first", ERROR_COLOR)
-                            return True
-                    
-                    # Check for blank tile letter selection
+                        
+                    if self.replace_button.collidepoint(event.pos):
+                        # Replace all tiles in the rack
+                        old_tiles = self.tile_rack.tiles.copy()
+                        self.tile_rack.tiles.clear()
+                        for tile in old_tiles:
+                            self.tile_bag.return_tile(tile)
+                        # Fill rack with new tiles
+                        while len(self.tile_rack.tiles) < 7:
+                            tile = self.tile_bag.draw_tile()
+                            if tile:
+                                self.tile_rack.add_tile(tile)
+                        self.is_player_turn = False  # Switch to AI's turn
+                        self.message = "Tiles replaced"
+                        self.message_color = (0, 255, 0)
+                        self.message_timer = 60
+                        return True
+                        
+                    # Check if a letter was selected for blank tile
                     if self.blank_tile_selection:
                         for button in self.blank_tile_buttons:
                             if button['rect'].collidepoint(event.pos):
@@ -158,70 +228,37 @@ class ScrabbleGame:
                         if not self.blank_tile_rect.collidepoint(event.pos):
                             self.blank_tile_selection = None
                             return True
-                    
-                    # Check if we clicked on a tile in the rack
-                    clicked_tile = self.tile_rack.get_tile_at(event.pos[0], event.pos[1])
-                    if clicked_tile:
-                        # Start dragging for any tile
-                        if self.tile_rack.start_drag(event.pos[0], event.pos[1]):
-                            self.dragged_tile = self.tile_rack.selected_tile
-                            self.drag_start_pos = event.pos
-                            self.original_pos = (self.dragged_tile.rect.x, self.dragged_tile.rect.y)
-                            return True
-                    
-                    # If not in rack, check if we clicked on a tile on the board
-                    board_tile = self.board.get_tile_at(event.pos[0], event.pos[1])
-                    if board_tile and board_tile in self.board.current_turn_tiles:
-                        self.dragged_tile = board_tile
-                        self.drag_start_pos = event.pos
-                        self.original_pos = (board_tile.rect.x, board_tile.rect.y)
-                        self.board.remove_tile(board_tile)
-            
+                                
             elif event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1:  # Left mouse button
-                    if self.dragged_tile:
+                if event.button == 1 and self.dragged_tile:  # Left click release
+                    # Get the grid position for the tile
+                    grid_pos = self.board.snap_position(event.pos[0], event.pos[1])
+                    
+                    if grid_pos and self.board.can_place(*grid_pos):
                         # Try to place the tile on the board
-                        mouse_x, mouse_y = event.pos
-                        grid_pos = self.board.snap_position(mouse_x, mouse_y)
-                        
-                        if grid_pos:
-                            row, col = grid_pos
-                            if self.board.place_tile(self.dragged_tile, row, col):
-                                # Tile was placed on board, remove from rack
-                                self.tile_rack.remove_tile(self.dragged_tile)
-                                print(f"Tile placed on board. Remaining tiles in rack: {len(self.tile_rack.tiles)}")
+                        if self.board.place_tile(self.dragged_tile, *grid_pos):
+                            self.tile_rack.remove_tile(self.dragged_tile)
+                            # Check if the placed tile is a blank tile
+                            if self.dragged_tile.letter == '_':
+                                self.blank_tile_selection = self.dragged_tile
                         else:
-                            # Tile was not placed on board, return to rack
-                            if self.dragged_tile not in self.tile_rack.tiles:
-                                self.tile_rack.add_tile(self.dragged_tile)
-                            self.dragged_tile.in_rack = True
+                            # Return tile to rack if placement failed
+                            self.tile_rack.add_tile(self.dragged_tile)
                             self.tile_rack._update_tile_positions()
+                    else:
+                        # Return tile to rack if not over a valid position
+                        self.tile_rack.add_tile(self.dragged_tile)
+                        self.tile_rack._update_tile_positions()
                         
-                        # Check if the placed tile is a blank tile
-                        if self.dragged_tile.letter == '_':
-                            self.blank_tile_selection = self.dragged_tile
-                        
-                        # Reset drag state
-                        self.dragged_tile = None
-                        self.drag_start_pos = None
-                        self.original_pos = None
-                    elif self.tile_rack.selected_tile:
-                        self.tile_rack.end_drag(event.pos)
-            
+                    self.dragged_tile = None
+                    return True
+                    
             elif event.type == pygame.MOUSEMOTION:
-                # Update drag position if dragging
                 if self.dragged_tile:
-                    # Calculate the drag offset
-                    dx = event.pos[0] - self.drag_start_pos[0]
-                    dy = event.pos[1] - self.drag_start_pos[1]
+                    self.dragged_tile.rect.x = event.pos[0] - self.dragged_tile.rect.width // 2
+                    self.dragged_tile.rect.y = event.pos[1] - self.dragged_tile.rect.height // 2
+                    return True
                     
-                    # Update tile position
-                    self.dragged_tile.rect.x += dx
-                    self.dragged_tile.rect.y += dy
-                    
-                    # Update drag start position
-                    self.drag_start_pos = event.pos
-        
         return True
 
     def replace_letter(self):
@@ -254,39 +291,6 @@ class ScrabbleGame:
         
         return True, f"Letter replaced! -1 point (New score: {self.player_score})"
 
-    def end_turn(self):
-        # End the current turn on the board
-        success, message, placed_tiles_count = self.board.end_turn()
-        if success:
-            print(f"Tiles placed this turn: {placed_tiles_count}")
-            
-            # Calculate and update score
-            turn_score = self.scoring.calculate_turn_score(self.board.current_turn_tiles, self.board)
-            bonus = self.scoring.calculate_bonus(placed_tiles_count)
-            total_score = turn_score + bonus
-            self.player_score += total_score
-            
-            # Add new tiles to replace the ones that were placed
-            for _ in range(placed_tiles_count):
-                tile = self.tile_bag.draw_tile()
-                if tile:
-                    print(f"Adding tile {tile.letter} to rack")
-                    self.tile_rack.add_tile(tile)
-                else:
-                    print("No more tiles in bag")
-                    break  # No more tiles in the bag
-            
-            print(f"Final tiles in rack: {len(self.tile_rack.tiles)}")
-            # Update the rack layout
-            self.tile_rack._update_tile_positions()
-            
-            # Update message with score information
-            message = f"Turn completed! Score: {turn_score} + {bonus} bonus = {total_score}"
-            
-            # Clear the current turn tiles after scoring
-            self.board.current_turn_tiles.clear()
-        return success, message
-
     def update(self):
         # Update message timer
         if self.message_timer and pygame.time.get_ticks() > self.message_timer:
@@ -294,27 +298,32 @@ class ScrabbleGame:
             self.message_timer = 0
 
     def draw(self):
+        """Draw the game state."""
         # Clear the screen
         self.screen.fill(WHITE)
         
-        # Draw game components
+        # Draw the board
         self.board.draw(self.screen)
+        
+        # Draw the tile rack
         self.tile_rack.draw(self.screen)
+        
+        # Draw the tile bag
         self.tile_bag.draw(self.screen)
         
-        # Draw end turn button
-        mouse_pos = pygame.mouse.get_pos()
-        button_color = BUTTON_HOVER_COLOR if self.end_turn_button.collidepoint(mouse_pos) else BUTTON_COLOR
-        pygame.draw.rect(self.screen, button_color, self.end_turn_button)
+        # Draw the AI's rack
+        self.ai_player.draw(self.screen)
+        
+        # Draw the end turn button
+        pygame.draw.rect(self.screen, BUTTON_COLOR, self.end_turn_button)
         text = self.button_font.render("End Turn", True, WHITE)
         text_rect = text.get_rect(center=self.end_turn_button.center)
         self.screen.blit(text, text_rect)
         
-        # Draw replace letter button
-        button_color = BUTTON_HOVER_COLOR if self.replace_letter_button.collidepoint(mouse_pos) else BUTTON_COLOR
-        pygame.draw.rect(self.screen, button_color, self.replace_letter_button)
+        # Draw the replace button
+        pygame.draw.rect(self.screen, BUTTON_COLOR, self.replace_button)
         text = self.button_font.render("Replace", True, WHITE)
-        text_rect = text.get_rect(center=self.replace_letter_button.center)
+        text_rect = text.get_rect(center=self.replace_button.center)
         self.screen.blit(text, text_rect)
         
         # Draw blank tile selection if active
@@ -352,12 +361,20 @@ class ScrabbleGame:
                 self.screen.blit(text, text_rect)
                 
                 # Draw hover effect
-                if button['rect'].collidepoint(mouse_pos):
+                if button['rect'].collidepoint(pygame.mouse.get_pos()):
                     pygame.draw.rect(self.screen, (150, 150, 255), button['rect'], 2)
         
-        # Draw score
-        score_text = self.message_font.render(f"Score: {self.player_score}", True, BLACK)
-        self.screen.blit(score_text, (10, 10))
+        # Draw scores
+        player_score_text = self.message_font.render(f"Your Score: {self.player_score}", True, BLACK)
+        self.screen.blit(player_score_text, (10, 10))
+        
+        # Draw turn indicator
+        turn_text = self.message_font.render(
+            "Your Turn" if self.is_player_turn else "AI's Turn",
+            True,
+            SUCCESS_COLOR if self.is_player_turn else ERROR_COLOR
+        )
+        self.screen.blit(turn_text, (SCREEN_WIDTH // 2 - 50, 10))
         
         # Draw message if any
         if self.message:
