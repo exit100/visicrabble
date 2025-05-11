@@ -317,8 +317,6 @@ class ScrabbleBoard:
         
         # Get the count of placed tiles before clearing
         placed_tiles_count = len(self.current_turn_tiles)
-        # Clear the current turn tiles set
-        self.current_turn_tiles.clear()
         return True, "Turn completed successfully", placed_tiles_count
 
     def get_bonus(self, row, col):

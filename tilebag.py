@@ -49,3 +49,8 @@ class TileBag:
 
     def remaining_tiles(self):
         return len(self.tiles)
+
+    def return_tile(self, tile):
+        """Return a tile to the bag."""
+        self.tiles.append(tile)
+        random.shuffle(self.tiles)
